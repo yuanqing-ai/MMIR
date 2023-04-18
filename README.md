@@ -49,6 +49,13 @@ docker run -it -d --runtime=nvidia --shm-size 32G --name=mmir -v /MMIR:/workspac
 docker exec -it mmir /bin/bash
 ```
 ### Use conda
+1. Clone this repository.
+2. Run the following command:
+```
+conda create -n mmir python=3.7
+conda activate mmir
+pip install -r requirements.txt
+```
 
 
 
