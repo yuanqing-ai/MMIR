@@ -83,8 +83,11 @@ bash MMIR_self.sh
 
 In this project, we borrowed some codes from the following projects:
 [Multi-Modal Domain Adaptation for Fine-Grained Action Recognition](https://github.com/jonmun/MM-SADA-code/tree/master)
+
 [Deep Analysis of CNN-based Spatio-temporal Representations for Action Recognition](https://github.com/IBM/action-recognition-pytorch)
+
 [Pytorch-I3D](https://github.com/piergiaj/pytorch-i3d)
+
 Thanks for sharing your codes.
 
 
