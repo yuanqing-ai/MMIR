@@ -57,5 +57,34 @@ conda activate mmir
 pip install -r requirements.txt
 ```
 
+## Steps to train
+
+1. Modify the path inside the shell script ```MMIR.sh``` to fit your own setting.
+2. Run the script.
+```
+bash MMIR.sh
+```
+
+## Steps to evaluate and conduct ablation studies
+
+1. Modify the path inside the shell scripts to fit your own setting.
+2. Use the following scripts to explore any component you like.
+```
+bash MMIR_test.sh
+bash MMIR_woir.sh
+bash MMIR_sourceonly.sh
+bash MMIR_woself.sh
+bash MMIR_DA.sh
+bash MMIR_self.sh
+
+```
+
+## Acknoledgements
+
+In this project, we borrowed some codes from the following projects:
+[Multi-Modal Domain Adaptation for Fine-Grained Action Recognition](https://github.com/jonmun/MM-SADA-code/tree/master)
+[Deep Analysis of CNN-based Spatio-temporal Representations for Action Recognition](https://github.com/IBM/action-recognition-pytorch)
+[Pytorch-I3D](https://github.com/piergiaj/pytorch-i3d)
+Thanks for sharing your codes.
 
 
