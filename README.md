@@ -42,12 +42,12 @@ There are two ways to setup the environment.
 ### Build docker image (Recommended)
 1. Clone this repository.
 2. Run the following command:
-'''
+```
 cd build_mmir_env
 bash build_env.sh
 docker run -it -d --runtime=nvidia --shm-size 32G --name=mmir -v /MMIR:/workspace mmir:1.0
 docker exec -it mmir /bin/bash
-'''
+```
 ### Use conda
 
 
