@@ -1,2 +1,2 @@
 # MMIR
-Final Year Project
+Multi-modal Instance Refinement for Action Recognition
