@@ -27,7 +27,7 @@ class Sync(nn.Module):
 		# 	)
         self.layers = nn.Sequential(
 			nn.Linear(self.state_size,layer1_num),
-            nn.LeakyReLU(negative_slope=0.2),
+            nn.ReLU(),
             nn.Linear(layer1_num,1)
 			)
         for layer in self.layers.modules():
@@ -59,7 +59,7 @@ class Domain_Classifier(nn.Module):
 		# 	)
         self.layers = nn.Sequential(
 			nn.Linear(self.state_size,128),
-			nn.LeakyReLU(negative_slope=0.2),
+			nn.ReLU(),
 			nn.Linear(128,1)    
 			)
         for layer in self.layers.modules():
@@ -246,52 +246,9 @@ class Unit3D(nn.Module):
             x = self._activation_fn(x)
         return x
 
-class Tostate(nn.Module):
-    def __init__(self):
-        super(Tostate, self).__init__()
-
-        # self.pool = nn.AvgPool3d(kernel_size=[2, 3, 3],
-        #                              stride=(1, 1, 1))                     
-
-        # self.pool1 = nn.AvgPool3d(kernel_size=[1, 3, 3],
-        #                              stride=(1, 2, 2))
-
-
-        # self.pool = nn.Conv3d(in_channels=384+384+128+128, out_channels=1024,
-        #                      kernel_size=(1, 3, 3),
-        #                      padding=0,
-        #                      stride=(1, 1, 1))
-                        
-        # self.pool1 = nn.AvgPool3d(kernel_size=[2, 3, 3],
-        #                             stride=(1, 2, 2))
-
-        # self.bn = nn.BatchNorm3d(1024, eps=0.001, momentum=0.01)
-
-        self.pool1 = nn.AvgPool3d(kernel_size=[2, 7, 7],
-                                    stride=(1, 1, 1))
-        
-        
-        
-                
-                                     
-
-    def forward(self,x):
-     #
-
-        #pool1 = self.pool(x)
-        #pool1 = self.bn(pool1)
-
-        # pooled = self.pool1(pool1)
-
-
-        pooled = self.pool1(x)
 
         
-        # else:
-        #     pool1 = self.pool2(x)
-        #     pooled = self.pool1(pool1)
-
-        return pooled
+        
 
 
     
@@ -470,44 +427,11 @@ class InceptionI3d(nn.Module):
         self.end_points[end_point] = InceptionModule(256+320+128+128, [384,192,384,48,128,128], name+end_point)
         if self._final_endpoint == end_point: return
 
-        end_point = 'features'
-    
-        self.end_points[end_point] = Tostate()
-        if self._final_endpoint == end_point: return
-
-        end_point = 'dropout'
-
-        self.dropout = nn.Dropout(dropout_keep_prob)
-
-        self.end_points['dropout'] = self.dropout
-
-        # end_point = 'Upsample'
-
-        # self.Upsample = Unit3D(in_channels=384+384+128+128, output_channels=384+384+128+128,
-        #                      kernel_shape=[16, 5, 5],
-        #                      padding=0,
-        #                      stride=[1, 1, 1],
-        #                      activation_fn=None,
-        #                      use_batch_norm=False,
-        #                      use_bias=True,
-        #                      name='Upsample')
-
-        # self.end_points['Upsample'] = self.Upsample
-        
-        end_point = 'logits_aux'
-
-        logits_aux = Unit3D(in_channels=384+384+128+128, output_channels=self._num_classes,
-                             kernel_shape=[1, 1, 1],
-                             padding=0,
-                             activation_fn=None,
-                             use_batch_norm=False,
-                             use_bias=True,
-                             name='logits_aux')
-        self.end_points['logits_aux'] = logits_aux
-            
-
 
         end_point = 'Logits'
+        self.avg_pool = nn.AvgPool3d(kernel_size=[2, 7, 7],
+                                     stride=(1, 1, 1))
+        self.dropout = nn.Dropout(dropout_keep_prob)
         self.logits = Unit3D(in_channels=384+384+128+128, output_channels=self._num_classes,
                              kernel_shape=[1, 1, 1],
                              padding=0,
@@ -516,17 +440,8 @@ class InceptionI3d(nn.Module):
                              use_bias=True,
                              name='logits')
 
-
-        self.avg_pool = self.avg_pool = nn.AvgPool3d(kernel_size=[2, 7, 7],
-                                     stride=(1, 1, 1))
-        
-        # else:
-        #     self.avg_pool = self.avg_pool = nn.AvgPool3d(kernel_size=[1, 7, 7],
-        #                              stride=(1, 1, 1))
-            
-
         self.build()
-
+            
 
     def replace_logits(self, num_classes):
         self._num_classes = num_classes
@@ -544,35 +459,23 @@ class InceptionI3d(nn.Module):
             self.add_module(k, self.end_points[k])
         
     def forward(self, x):
-        #print("in forward",x)
         for end_point in self.VALID_ENDPOINTS:
-            #print("end_point",end_point)
             if end_point in self.end_points:
-
-                if end_point=='features':
-
-                    features = self._modules[end_point](x)
-                    #print(end_point,features.size())
-                    continue
-
-                if self.flip_classifier_gradient and end_point=='Logits':
-                    x = flip_gradient(x, self.flip_weight)
-                if self._aux_classifier and end_point=='logits_aux':
-                    aux_logits = x 
-                    aux_logits = self._modules[end_point](aux_logits)
-                    if self._spatial_squeeze:
-                        aux_logits = aux_logits.squeeze(3).squeeze(3)
-                elif end_point=='logits_aux':
-                    continue
-                
                 x = self._modules[end_point](x) # use _modules to work with dataparallel
+
+        features = self.avg_pool(x)
+        if self._aux_classifier:
+            x1=x
+            x1 = self.logits(self.dropout(self.avg_pool(x1)))
+            if self._spatial_squeeze:
+                aux_logits = x.squeeze(3).squeeze(3)
                 
-        #print("x",x)
         x = self.logits(self.dropout(self.avg_pool(x)))
-        #print("x",x)
         if self._spatial_squeeze:
             logits = x.squeeze(3).squeeze(3)
-        # logits is batch X time X classes, which is what we want to work with
+        
+
+
         if self._aux_classifier:
             return logits, features, aux_logits
         else:

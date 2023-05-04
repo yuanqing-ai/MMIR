@@ -224,10 +224,10 @@ class TrainTestScript:
             logname = self.results_dir+'/train'
             logger = SummaryWriter(logname)
 
-        optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9, weight_decay=0.0001)
+        optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9, weight_decay=1e-7)
         #optimizer = optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=0.0001)
         #optimizer = optim.Adadelta(self.model.parameters(), lr=self.lr, rho=0.9, eps=1e-6, weight_decay=0.00001)
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[70], gamma=0.5)
+        #scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50], gamma=0.5)
 
         #optimizer = optim.RMSprop(self.model.parameters(), lr=self.lr, alpha=0.99, eps=1e-8, weight_decay=0.0001, momentum=0.9, centered=False)
         
@@ -436,27 +436,55 @@ class TrainTestScript:
 
 
                         #########################shuffle##############################
-                        shuffle_index=torch.randperm(len(image_s_rgb))
+
+
+                        
+                        shuffle_index = np.arange(len(image_s_rgb))
+                        random.shuffle(shuffle_index)
+                        for i in range (3):
+                            a_i = np.arange(len(image_s_rgb))
+                            random.shuffle(a_i)
+
+                            shuffle_index= np.vstack([shuffle_index,a_i])
+                        for i in range(4):
+                            if dist.get_rank()==i:
+                                shuffle_index=shuffle_index[i]
+                        
+
+
                         sychron_s =np.array([0]*half+[1]*half)   
                         sychron_s = sychron_s[shuffle_index]                    
                         sychron_s = torch.from_numpy(sychron_s).view(-1,1)
                         train_id = torch.nonzero(sychron_s.squeeze()==0).squeeze()
-                        #print("sychron_s",sychron_s)
-                        #sychron_s = torch.zeros(len(image_s_rgb),2).scatter_(1,sychron_s,1).float().cuda()
+                  
                         sychron_s = sychron_s.float().cuda()
                         
                         image_s_rgb = image_s_rgb[shuffle_index]
                         image_s_flow = image_s_flow[shuffle_index]
                         label_s = label_s[shuffle_index]
-                        #print(label_s)
+          
                         label_pred = label_s.cuda()
                     
                         label_s = F.one_hot(label_s,8).float().cuda()
-                        #print(label_s)
+
 
 
                         #########################shuffle##############################
+     
+                        
+                        shuffle_index = np.arange(len(image_t_rgb))
+                        random.shuffle(shuffle_index)
+                        for i in range (3):
+                            a_i = np.arange(len(image_t_rgb))
+                            random.shuffle(a_i)
 
+                            shuffle_index= np.vstack([shuffle_index,a_i])
+                        for i in range(4):
+                            if dist.get_rank()==i:
+                                shuffle_index=shuffle_index[i]
+                        
+
+           
 
                         half = int(len(image_t_rgb)/2)
                         fixed_sample_rgb = image_t_rgb[:half]
@@ -471,19 +499,19 @@ class TrainTestScript:
                         sychron_t =np.array([0]*half+[1]*half)
                         sychron_t = sychron_t[shuffle_index]
                         sychron_t = torch.from_numpy(sychron_t).view(-1,1)
-                        #sychron_t = torch.zeros(len(image_t_rgb),2).scatter_(1,sychron_t,1).cuda()
+
                         sychron_t = sychron_t.float().cuda()
-                        shuffle_index=torch.randperm(len(image_t_rgb))
+                        
                         image_t_rgb = image_t_rgb[shuffle_index]
                         image_t_flow = image_t_flow[shuffle_index]
+
+                        
                         
                         
 
                         sychron = torch.cat((sychron_s,sychron_t),0)
 
-                        # if dist.get_rank()==0:
-
-                        #     print("sychron_s",sychron)
+             
 
                         #########################shuffle##############################
 
@@ -631,7 +659,7 @@ class TrainTestScript:
                             cls_loss =cse(logits[train_id,:], label_s[train_id,:])
                             criterion = torch.nn.BCEWithLogitsLoss()
                             sync_loss = criterion(logits_synch, sychron)
-                            loss = cls_loss + sync_loss*self.FLAGS.self_lambda + domain_loss + loss_dqn                 
+                            loss = cls_loss*self.FLAGS.lambda_cls + sync_loss*self.FLAGS.self_lambda + domain_loss + loss_dqn                 
 
 
                             # sync_loss = F.binary_cross_entropy_with_logits(logits_synch, sychron)
@@ -650,7 +678,7 @@ class TrainTestScript:
                             cls_loss =cse(logits, label_s)
 
 
-                            loss = cls_loss + domain_loss + loss_dqn
+                            loss = cls_loss*self.FLAGS.lambda_cls + domain_loss + loss_dqn
                         
                             pred = torch.argmax(logits,1)
                             score = torch.eq(pred,label_pred).long().float()
@@ -685,8 +713,17 @@ class TrainTestScript:
                                 cls_loss =cse(logits[train_id,:], label_s[train_id,:])
                                 # sync_loss = cse(logits_synch, sychron)
                                 criterion = torch.nn.BCEWithLogitsLoss()
+                                #sychron = F.one_hot(sychron.to(torch.int64),2).float()
+                                # print("logits_synch",logits_synch.size())
+                                # print("sychron",sychron.size())
+                                #sychron = sychron.squeeze(1).long()
+                                
+                                # print(torch.sigmoid(logits_synch))
+                                # print(sychron)
+                                # print(label_s)
+
                                 sync_loss = criterion(logits_synch, sychron)
-                                loss = cls_loss+sync_loss*self.FLAGS.self_lambda  
+                                loss = cls_loss*self.FLAGS.lambda_cls+sync_loss*self.FLAGS.self_lambda  
                                 pred = torch.argmax(logits[train_id],1)
                                 score = torch.eq(pred,label_pred[train_id]).long().float()
                                 #print("score",score)
@@ -696,7 +733,7 @@ class TrainTestScript:
                                 logits = torch.mean(torch.stack((logits_rgb, logits_flow)), dim=0)
                                 # cls_loss = F.binary_cross_entropy_with_logits(logits, label_s)
                                 cls_loss = cse(logits, label_s)
-                                loss = cls_loss
+                                loss = cls_loss*self.FLAGS.lambda_cls
                                 pred = torch.argmax(logits,1)
                                 score = torch.eq(pred,label_pred).long().float()
                                 #print("score",score)
@@ -720,14 +757,19 @@ class TrainTestScript:
                     if dist.get_rank() == 0:
                         torch.save(self.model.module.state_dict(), self.save_model+'/'+str(steps).zfill(6)+'.pt')
                 ##write logging
-                if steps<7501 and steps % 2000==1:
+                if steps<7501 and steps % 500==1:
                     #lr_sched.step
                     if dist.get_rank() == 0:
                         torch.save(self.model.module.state_dict(), self.save_model+'/'+str(steps).zfill(6)+'.pt')
                 ##write logging
                 
-                if steps % 2000==1 and steps<7501:
+                if steps % 1000==1 and steps<7501:
                     eval =True
+                elif steps % 200==1 and steps<1201:
+                    eval =True
+                else:
+                    eval = False
+
                 if steps>7501 and steps%50==1:
                     eval = True
     
@@ -845,7 +887,7 @@ class TrainTestScript:
             
             if dist.get_rank() == 0:
                 print("Epoch (%d) Done! time used for Epoch:%.4f" % (epoch,(end-start)))
-            scheduler.step()
+            #scheduler.step()
             if Done==True:
                 break
 
@@ -983,6 +1025,8 @@ class TrainTestScript:
         #print("(Val) %s: domain:%s step:%d accuracy:%f avg_class %f" % (datetime.datetime.now(), "Target", self.FLAGS.step, valaccuracy, average_class))
         end = time.time()
         print("time used:",(end-start))
+
+
 
 if __name__ == '__main__':
     # need to add argparse
