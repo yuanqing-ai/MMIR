@@ -79,7 +79,7 @@ bash MMIR_self.sh
 
 ```
 
-## Acknoledgements
+## Acknowledgements
 
 In this project, we borrowed some codes from the following projects:
 
