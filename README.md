@@ -88,6 +88,7 @@ In this project, we borrowed some codes from the following projects:
 [Deep Analysis of CNN-based Spatio-temporal Representations for Action Recognition](https://github.com/IBM/action-recognition-pytorch)
 
 [Pytorch-I3D](https://github.com/piergiaj/pytorch-i3d)
+[SIR](https://github.com/ChenJinBIT/SIR)
 
 Thanks for sharing your codes.
 
